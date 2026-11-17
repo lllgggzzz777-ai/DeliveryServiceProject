@@ -24,4 +24,4 @@
 
 1. **Клонируйте репозиторий:**
    ```bash
-   git clone https://github.com/ваш-логин/DeliveryServiceProject.git
+   git clone https://github.com/lllgggzzz777-ai/DeliveryServiceProject.git
