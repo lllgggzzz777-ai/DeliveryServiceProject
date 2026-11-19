@@ -2,12 +2,12 @@ package com.example.DeliveryService.controller;
 
 import com.example.DeliveryService.model.DeliveryOrder;
 import com.example.DeliveryService.model.User;
+import com.example.DeliveryService.service.AdminService;
 import com.example.DeliveryService.service.OrderService;
 import com.example.DeliveryService.service.UserService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -15,42 +15,26 @@ import java.util.Map;
 @RequestMapping("/api/admin")
 public class AdminController {
 
+    private final AdminService adminService;
     private final UserService userService;
     private final OrderService orderService;
 
     // Внедрение зависимостей через конструктор
-    public AdminController(UserService userService, OrderService orderService) {
+    public AdminController(AdminService adminService, 
+                           UserService userService, 
+                           OrderService orderService) {
+        this.adminService = adminService;
         this.userService = userService;
         this.orderService = orderService;
     }
 
-    // 1. Сводная статистика (Дашборд)
+    // Сводная статистика (Дашборд) - ЛОГИКА ТЕПЕРЬ В СЕРВИСЕ
     @GetMapping("/dashboard")
     public ResponseEntity<?> getDashboard() {
-        Map<String, Object> stats = new HashMap<>();
-        
-        // Статистика по заказам
-        stats.put("totalOrders", orderService.countAll());
-        stats.put("createdOrders", orderService.countByStatus("CREATED"));
-        stats.put("assignedOrders", orderService.countByStatus("ASSIGNED"));
-        stats.put("inTransitOrders", orderService.countByStatus("IN_TRANSIT"));
-        stats.put("deliveredOrders", orderService.countByStatus("DELIVERED"));
-        stats.put("cancelledOrders", orderService.countByStatus("CANCELLED"));
-
-        // Статистика по пользователям
-        List<User> allUsers = userService.getAllUsers();
-        stats.put("totalUsers", allUsers.size());
-        
-        long couriersCount = allUsers.stream().filter(u -> "COURIER".equals(u.getRole())).count();
-        long clientsCount = allUsers.stream().filter(u -> "CLIENT".equals(u.getRole())).count();
-        
-        stats.put("totalCouriers", couriersCount);
-        stats.put("totalClients", clientsCount);
-
-        return ResponseEntity.ok(stats);
+        return ResponseEntity.ok(adminService.getDashboardStats());
     }
 
-    // 2. Все заказы (с возможностью фильтрации по статусу)
+    // Все заказы (с возможностью фильтрации по статусу)
     @GetMapping("/orders")
     public ResponseEntity<?> getAllOrders(@RequestParam(required = false) String status) {
         List<DeliveryOrder> orders;
@@ -62,7 +46,7 @@ public class AdminController {
         return ResponseEntity.ok(orders);
     }
 
-    // 3. Изменение статуса любого заказа администратором
+    // Изменение статуса любого заказа администратором
     @PatchMapping("/orders/{id}")
     public ResponseEntity<?> updateOrderStatus(@PathVariable Long id, @RequestParam String status) {
         try {
@@ -73,13 +57,13 @@ public class AdminController {
         }
     }
 
-    // 4. Все пользователи
+    //  Все пользователи
     @GetMapping("/users")
     public List<User> getAllUsers() {
         return userService.getAllUsers();
     }
 
-    // 5. Блокировка/разблокировка пользователя
+    // Блокировка/разблокировка пользователя
     @PatchMapping("/users/{id}/block")
     public ResponseEntity<?> blockUser(@PathVariable Long id, @RequestParam boolean blocked) {
         try {

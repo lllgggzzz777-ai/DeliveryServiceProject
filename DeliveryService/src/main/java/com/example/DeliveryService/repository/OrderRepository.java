@@ -9,10 +9,10 @@ import java.util.List;
 @Repository
 public interface OrderRepository extends JpaRepository<DeliveryOrder, Long> {
 
-    // Найти все заказы конкретного клиента (для истории заказов клиента)
+    // Найти все заказы конкретного клиента
     List<DeliveryOrder> findByClientId(Long clientId);
 
-    // Найти все заказы конкретного курьера (для активных заказов и расчета заработка)
+    // Найти все заказы конкретного курьера
     List<DeliveryOrder> findByCourierId(Long courierId);
 
     // Найти заказы по статусу 

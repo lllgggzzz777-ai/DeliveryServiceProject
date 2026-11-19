@@ -8,6 +8,7 @@ import java.util.Optional;
 
 @Repository
 public interface ReviewRepository extends JpaRepository<Review, Long> {
-    // Найти отзыв по ID заказа
+    
+    // Найти отзыв по ID заказа. 
     Optional<Review> findByOrderId(Long orderId);
 }

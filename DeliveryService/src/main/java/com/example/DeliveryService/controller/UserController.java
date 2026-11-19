@@ -1,5 +1,6 @@
 package com.example.DeliveryService.controller;
 
+import com.example.DeliveryService.dto.UserResponse;
 import com.example.DeliveryService.model.User;
 import com.example.DeliveryService.service.UserService;
 import org.springframework.http.ResponseEntity;
@@ -13,34 +14,33 @@ public class UserController {
 
     private final UserService userService;
 
-    // Внедрение сервиса через конструктор
     public UserController(UserService userService) {
         this.userService = userService;
     }
 
-    //  Получить профиль текущего пользователя
+    // Получить профиль текущего пользователя
     @GetMapping("/me")
     public ResponseEntity<?> getMyProfile(@RequestParam Long userId) {
         try {
             User user = userService.findById(userId);
-            return ResponseEntity.ok(user);
+            return ResponseEntity.ok(new UserResponse(user)); // Оборачиваем в DTO, чтобы скрыть пароль
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
 
-    //  Обновить профиль
+    // Обновить профиль 
     @PatchMapping("/me")
     public ResponseEntity<?> updateMyProfile(@RequestParam Long userId, @RequestBody User request) {
         try {
             User updatedUser = userService.updateProfile(userId, request);
-            return ResponseEntity.ok(updatedUser);
+            return ResponseEntity.ok(new UserResponse(updatedUser));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
 
-    //  Смена пароля
+    // Смена пароля
     @PatchMapping("/me/password")
     public ResponseEntity<?> changePassword(@RequestParam Long userId, @RequestBody Map<String, String> passwords) {
         try {

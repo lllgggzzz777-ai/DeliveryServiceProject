@@ -1,5 +1,6 @@
 package com.example.DeliveryService.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 
 @Entity
@@ -10,28 +11,49 @@ public class Address {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private Long userId;     
-    private String title;   
+    // СВЯЗЬ С ПОЛЬЗОВАТЕЛЕМ (Много адресов у одного клиента)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", referencedColumnName = "id")
+    @JsonIgnore 
+    private User user;
+
+    private String title;     
     private String address;  
 
     public Address() {}
 
-    public Address(Long userId, String title, String address) {
-        this.userId = userId;
+   
+    public Address(User user, String title, String address) {
+        this.user = user;
         this.title = title;
         this.address = address;
     }
 
-  
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    public Long getId() { 
+        return id; 
+    }
+    public void setId(Long id) { 
+        this.id = id; 
+    }
 
-    public Long getUserId() { return userId; }
-    public void setUserId(Long userId) { this.userId = userId; }
+    public User getUser() { 
+        return user; 
+    }
+    public void setUser(User user) { 
+        this.user = user; 
+    }
 
-    public String getTitle() { return title; }
-    public void setTitle(String title) { this.title = title; }
+    public String getTitle() { 
+        return title; 
+    }
+    public void setTitle(String title) { 
+        this.title = title; 
+    }
 
-    public String getAddress() { return address; }
-    public void setAddress(String address) { this.address = address; }
+    public String getAddress() { 
+        return address; 
+    }
+    public void setAddress(String address) { 
+        this.address = address; 
+    }
 }

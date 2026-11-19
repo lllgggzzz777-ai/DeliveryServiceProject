@@ -14,27 +14,33 @@ public class DeliveryOrder {
     private String deliveryAddress; // Адрес доставки
     private String status;          // CREATED, ASSIGNED, IN_TRANSIT, DELIVERED, CANCELLED
     private double price;           // Стоимость доставки
-    
-    private Long clientId;          // ID клиента, создавшего заказ
-    private Long courierId;         // ID курьера (может быть null, пока не назначен)
 
-    // Поля для отмены заказа
+    // Один клиент может иметь много заказов 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "client_id") 
+    private User client;
+
+    // Один курьер может выполнять много заказов 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "courier_id") 
+    private User courier;
+
+    // ПОЛЯ ОТМЕНЫ
     private boolean cancelled = false;
     private String cancelReason;
 
     // Пустой конструктор 
     public DeliveryOrder() {}
 
-    // Конструктор для быстрого создания заказа
-    public DeliveryOrder(String pickupAddress, String deliveryAddress, double price, Long clientId) {
+    // Конструктор для быстрого создания заказа 
+    public DeliveryOrder(String pickupAddress, String deliveryAddress, double price, User client) {
         this.pickupAddress = pickupAddress;
         this.deliveryAddress = deliveryAddress;
         this.price = price;
-        this.clientId = clientId;
+        this.client = client;
         this.status = "CREATED"; // По умолчанию заказ создан
         this.cancelled = false;
     }
-
 
     public Long getId() { 
         return id; 
@@ -71,18 +77,19 @@ public class DeliveryOrder {
         this.price = price; 
     }
 
-    public Long getClientId() { 
-        return clientId; 
+    
+    public User getClient() { 
+        return client; 
     }
-    public void setClientId(Long clientId) { 
-        this.clientId = clientId; 
+    public void setClient(User client) { 
+        this.client = client; 
     }
 
-    public Long getCourierId() { 
-        return courierId; 
+    public User getCourier() { 
+        return courier; 
     }
-    public void setCourierId(Long courierId) { 
-        this.courierId = courierId; 
+    public void setCourier(User courier) { 
+        this.courier = courier; 
     }
 
     public boolean isCancelled() { 

@@ -1,7 +1,11 @@
 package com.example.DeliveryService.service;
 
+import com.example.DeliveryService.dto.OrderRequest;
+import com.example.DeliveryService.dto.OrderResponse;
 import com.example.DeliveryService.model.DeliveryOrder;
+import com.example.DeliveryService.model.User;
 import com.example.DeliveryService.repository.OrderRepository;
+import com.example.DeliveryService.repository.UserRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -10,25 +14,36 @@ import java.util.List;
 public class OrderService {
 
     private final OrderRepository orderRepository;
+    private final UserRepository userRepository;
 
-    // Внедрение репозитория через конструктор
-    public OrderService(OrderRepository orderRepository) {
+    // Внедрение зависимостей через конструктор
+    public OrderService(OrderRepository orderRepository, UserRepository userRepository) {
         this.orderRepository = orderRepository;
+        this.userRepository = userRepository;
     }
 
-    // Создать заказ
-    public DeliveryOrder createOrder(DeliveryOrder order) {
-        if (order.getPrice() <= 0) {
+    // Создать заказ 
+    public OrderResponse createOrder(OrderRequest request) {
+        if (request.getPrice() <= 0) {
             throw new RuntimeException("Цена должна быть больше 0");
         }
-        if (order.getClientId() == null) {
-            throw new RuntimeException("Не указан ID клиента");
-        }
-        // По умолчанию статус CREATED, если не передан
-        if (order.getStatus() == null) {
-            order.setStatus("CREATED");
-        }
-        return orderRepository.save(order);
+        
+        // Ищем клиента по ID
+        User client = userRepository.findById(request.getClientId())
+                .orElseThrow(() -> new RuntimeException("Клиент с ID " + request.getClientId() + " не найден"));
+
+     
+        DeliveryOrder order = new DeliveryOrder();
+        order.setPickupAddress(request.getPickupAddress());
+        order.setDeliveryAddress(request.getDeliveryAddress());
+        order.setPrice(request.getPrice());
+        order.setClient(client);
+        order.setStatus("CREATED");
+
+        DeliveryOrder savedOrder = orderRepository.save(order);
+        
+        // Возвращаем DTO 
+        return new OrderResponse(savedOrder);
     }
 
     // Получить все заказы
@@ -41,19 +56,19 @@ public class OrderService {
         return orderRepository.findByClientId(clientId);
     }
 
-    //  Получить заказы конкретного курьера
+    // Получить заказы конкретного курьера
     public List<DeliveryOrder> getOrdersByCourier(Long courierId) {
         return orderRepository.findByCourierId(courierId);
     }
 
-    //  Получить заказ по ID (с проверкой на существование)
+    // Получить заказ по ID
     public DeliveryOrder getOrderById(Long id) {
         return orderRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Заказ с ID " + id + " не найден"));
     }
 
-    // Обновить заказ (разрешено только пока статус CREATED)
-    public DeliveryOrder updateOrder(Long id, DeliveryOrder request) {
+    // Обновить заказ (Принимает DTO)
+    public DeliveryOrder updateOrder(Long id, OrderRequest request) {
         DeliveryOrder order = getOrderById(id);
         
         if (!"CREATED".equals(order.getStatus())) {
@@ -73,7 +88,7 @@ public class OrderService {
         return orderRepository.save(order);
     }
 
-    // Отменить заказ с указанием причины
+    // Отменить заказ
     public DeliveryOrder cancelOrder(Long id, String reason) {
         DeliveryOrder order = getOrderById(id);
 
@@ -91,7 +106,7 @@ public class OrderService {
         return orderRepository.save(order);
     }
 
-    // Обновить статус заказа 
+    // Обновить статус
     public DeliveryOrder updateStatus(Long id, String status) {
         DeliveryOrder order = getOrderById(id);
 
@@ -103,7 +118,7 @@ public class OrderService {
         return orderRepository.save(order);
     }
 
-    // Назначить курьера на заказ
+    // Назначить курьера
     public DeliveryOrder assignCourier(Long orderId, Long courierId) {
         DeliveryOrder order = getOrderById(orderId);
 
@@ -111,12 +126,19 @@ public class OrderService {
             throw new RuntimeException("Курьера можно назначить только на новый заказ (статус CREATED)");
         }
 
-        order.setCourierId(courierId);
+        User courier = userRepository.findById(courierId)
+                .orElseThrow(() -> new RuntimeException("Курьер с ID " + courierId + " не найден"));
+
+        if (!"COURIER".equals(courier.getRole())) {
+            throw new RuntimeException("Пользователь с ID " + courierId + " не является курьером");
+        }
+
+        order.setCourier(courier);
         order.setStatus("ASSIGNED");
         return orderRepository.save(order);
     }
 
-    //  Повторить заказ (создать новый на основе старого)
+    // Повторить заказ
     public DeliveryOrder repeatOrder(Long id) {
         DeliveryOrder oldOrder = getOrderById(id);
 
@@ -124,21 +146,19 @@ public class OrderService {
                 oldOrder.getPickupAddress(),
                 oldOrder.getDeliveryAddress(),
                 oldOrder.getPrice(),
-                oldOrder.getClientId()
+                oldOrder.getClient()
         );
         
         return orderRepository.save(newOrder);
     }
 
-    // Получить историю изменений статуса
+    // Получить историю (заглушка)
     public List<Object> getHistory(Long id) {
-        // Проверяем, что заказ существует
         getOrderById(id);
-        
         return java.util.Collections.emptyList();
     }
 
-    // Статистика (для админки)
+    // Статистика
     public long countAll() {
         return orderRepository.count();
     }
@@ -149,7 +169,7 @@ public class OrderService {
                 .count();
     }
 
-    //  Расчет заработка курьера
+    //  Заработок курьера
     public double getEarnings(Long courierId) {
         List<DeliveryOrder> orders = orderRepository.findByCourierId(courierId);
         double total = 0;
@@ -161,7 +181,7 @@ public class OrderService {
         return total;
     }
 
-    // Получить заказы по статусу (для админки)
+    // Получить заказы по статусу
     public List<DeliveryOrder> getOrdersByStatus(String status) {
         return orderRepository.findByStatus(status);
     }

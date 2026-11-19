@@ -1,77 +1,81 @@
 package com.example.DeliveryService.controller;
 
+import com.example.DeliveryService.dto.OrderRequest;
+import com.example.DeliveryService.dto.OrderResponse;
 import com.example.DeliveryService.model.DeliveryOrder;
-import com.example.DeliveryService.model.Review;
 import com.example.DeliveryService.service.OrderService;
-import com.example.DeliveryService.service.ReviewService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/orders")
 public class OrderController {
 
     private final OrderService orderService;
-    private final ReviewService reviewService; // Добавили сервис отзывов
 
-    // Внедрение зависимостей через конструктор
-    public OrderController(OrderService orderService, ReviewService reviewService) {
+    public OrderController(OrderService orderService) {
         this.orderService = orderService;
-        this.reviewService = reviewService;
     }
 
-    // Создать заказ
+    // Создать заказ 
     @PostMapping
-    public ResponseEntity<?> createOrder(@RequestBody DeliveryOrder order) {
+    public ResponseEntity<?> createOrder(@RequestBody OrderRequest request) {
         try {
-            DeliveryOrder created = orderService.createOrder(order);
-            return ResponseEntity.ok(created);
+            OrderResponse response = orderService.createOrder(request);
+            return ResponseEntity.ok(response);
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
 
-    // Список заказов (с возможностью фильтрации по клиенту или курьеру)
+    // Список заказов 
     @GetMapping
-    public List<DeliveryOrder> getOrders(
+    public List<OrderResponse> getOrders(
             @RequestParam(required = false) Long clientId,
             @RequestParam(required = false) Long courierId) {
         
+        List<DeliveryOrder> orders;
         if (clientId != null) {
-            return orderService.getOrdersByClient(clientId);
+            orders = orderService.getOrdersByClient(clientId);
+        } else if (courierId != null) {
+            orders = orderService.getOrdersByCourier(courierId);
+        } else {
+            orders = orderService.getAllOrders();
         }
-        if (courierId != null) {
-            return orderService.getOrdersByCourier(courierId);
-        }
-        return orderService.getAllOrders();
+        
+        // Превращаем список сущностей в список DTO
+        return orders.stream()
+                .map(OrderResponse::new)
+                .collect(Collectors.toList());
     }
 
-    // Детали заказа
+    // Детали заказа 
     @GetMapping("/{id}")
     public ResponseEntity<?> getOrderDetails(@PathVariable Long id) {
         try {
             DeliveryOrder order = orderService.getOrderById(id);
-            return ResponseEntity.ok(order);
-        } catch (RuntimeException e) {
-            return ResponseEntity.notFound().build();
-        }
-    }
-
-    // Обновить заказ (до принятия курьером)
-    @PatchMapping("/{id}")
-    public ResponseEntity<?> updateOrder(@PathVariable Long id, @RequestBody DeliveryOrder request) {
-        try {
-            DeliveryOrder updated = orderService.updateOrder(id, request);
-            return ResponseEntity.ok(updated);
+            return ResponseEntity.ok(new OrderResponse(order));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
 
-    // Отменить заказ (удаление или пометка как отмененный)
+    // Обновить заказ 
+    @PatchMapping("/{id}")
+    public ResponseEntity<?> updateOrder(@PathVariable Long id, @RequestBody OrderRequest request) {
+        try {
+            DeliveryOrder updated = orderService.updateOrder(id, request);
+            return ResponseEntity.ok(new OrderResponse(updated));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // Отменить заказ (удаление)
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteOrder(@PathVariable Long id) {
         try {
@@ -87,7 +91,7 @@ public class OrderController {
     public ResponseEntity<?> cancelOrderWithReason(@PathVariable Long id, @RequestParam String reason) {
         try {
             DeliveryOrder cancelled = orderService.cancelOrder(id, reason);
-            return ResponseEntity.ok(cancelled);
+            return ResponseEntity.ok(new OrderResponse(cancelled));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
@@ -100,7 +104,7 @@ public class OrderController {
             DeliveryOrder order = orderService.getOrderById(id);
             return ResponseEntity.ok(Map.of("status", order.getStatus()));
         } catch (RuntimeException e) {
-            return ResponseEntity.notFound().build();
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
 
@@ -114,56 +118,34 @@ public class OrderController {
         }
     }
 
-    // Повторить заказ (создать копию)
+    // Повторить заказ
     @PostMapping("/{id}/repeat")
     public ResponseEntity<?> repeatOrder(@PathVariable Long id) {
         try {
             DeliveryOrder repeated = orderService.repeatOrder(id);
-            return ResponseEntity.ok(repeated);
+            return ResponseEntity.ok(new OrderResponse(repeated));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
 
-    // Назначить курьера на заказ (вспомогательный эндпоинт)
+    // Назначить курьера
     @PatchMapping("/{id}/assign/{courierId}")
     public ResponseEntity<?> assignCourier(@PathVariable Long id, @PathVariable Long courierId) {
         try {
             DeliveryOrder assigned = orderService.assignCourier(id, courierId);
-            return ResponseEntity.ok(assigned);
+            return ResponseEntity.ok(new OrderResponse(assigned));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
 
-    // Обновить статус (вспомогательный эндпоинт для курьера)
+    // Обновить статус 
     @PatchMapping("/{id}/status")
     public ResponseEntity<?> updateStatus(@PathVariable Long id, @RequestParam String status) {
         try {
             DeliveryOrder updated = orderService.updateStatus(id, status);
-            return ResponseEntity.ok(updated);
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
-    }
-
-    // Оставить отзыв о заказе
-    @PostMapping("/{id}/review")
-    public ResponseEntity<?> addReview(@PathVariable Long id, @RequestBody Review request) {
-        try {
-            Review review = reviewService.createReview(id, request.getRating(), request.getComment());
-            return ResponseEntity.ok(review);
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
-    }
-
-    // Получить отзыв о заказе
-    @GetMapping("/{id}/review")
-    public ResponseEntity<?> getReview(@PathVariable Long id) {
-        try {
-            Review review = reviewService.getReviewByOrder(id);
-            return ResponseEntity.ok(review);
+            return ResponseEntity.ok(new OrderResponse(updated));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
